@@ -16,13 +16,32 @@ const ChatArea = () => {
     if (!input.trim()) return;
     setMessages([...messages, { text: input, sender: 'user' }]);
     setInput('');
-    // Simulate bot reply (replace with real API call)
-    setTimeout(() => {
-      setMessages((msgs) => [
-        ...msgs,
-        { text: "I'm a bot!", sender: 'bot' },
-      ]);
-    }, 800);
+    // Call backend API
+    fetch('/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: input }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.response) {
+          setMessages((msgs) => [
+            ...msgs,
+            { text: data.response, sender: 'bot' },
+          ]);
+        } else {
+          setMessages((msgs) => [
+            ...msgs,
+            { text: data.error || 'Error: No response from server.', sender: 'bot' },
+          ]);
+        }
+      })
+      .catch((err) => {
+        setMessages((msgs) => [
+          ...msgs,
+          { text: 'Error: ' + err.message, sender: 'bot' },
+        ]);
+      });
   };
 
   return (

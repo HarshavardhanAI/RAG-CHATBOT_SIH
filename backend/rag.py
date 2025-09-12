@@ -45,7 +45,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return "hello"
 
 @app.route("/ask", methods=["POST"])
 def ask():
