@@ -1,22 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
 
+
 const ChatArea = () => {
-  const [messages, setMessages] = useState([
+  const defaultMessages = [
     { text: 'Hello! How can I help you today?', sender: 'bot' },
-  ]);
+  ];
+  const [messages, setMessages] = useState(() => {
+    const saved = sessionStorage.getItem('chat_messages');
+    return saved ? JSON.parse(saved) : defaultMessages;
+  });
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    sessionStorage.setItem('chat_messages', JSON.stringify(messages));
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, loading]);
 
   const handleSend = (e) => {
     e.preventDefault();
     if (!input.trim()) return;
-    setMessages([...messages, { text: input, sender: 'user' }]);
+    setMessages((prev) => {
+      const updated = [...prev, { text: input, sender: 'user' }];
+      sessionStorage.setItem('chat_messages', JSON.stringify(updated));
+      return updated;
+    });
     setInput('');
-    // Call backend API
+    setLoading(true);
     fetch('/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -24,24 +35,25 @@ const ChatArea = () => {
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.response) {
-          setMessages((msgs) => [
-            ...msgs,
-            { text: data.response, sender: 'bot' },
-          ]);
-        } else {
-          setMessages((msgs) => [
-            ...msgs,
-            { text: data.error || 'Error: No response from server.', sender: 'bot' },
-          ]);
-        }
+        setMessages((msgs) => {
+          let updated;
+          if (data.response) {
+            updated = [...msgs, { text: data.response, sender: 'bot' }];
+          } else {
+            updated = [...msgs, { text: data.error || 'Error: No response from server.', sender: 'bot' }];
+          }
+          sessionStorage.setItem('chat_messages', JSON.stringify(updated));
+          return updated;
+        });
       })
       .catch((err) => {
-        setMessages((msgs) => [
-          ...msgs,
-          { text: 'Error: ' + err.message, sender: 'bot' },
-        ]);
-      });
+        setMessages((msgs) => {
+          const updated = [...msgs, { text: 'Error: ' + err.message, sender: 'bot' }];
+          sessionStorage.setItem('chat_messages', JSON.stringify(updated));
+          return updated;
+        });
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -60,6 +72,12 @@ const ChatArea = () => {
             {msg.text}
           </div>
         ))}
+        {loading && (
+          <div className="self-start flex items-center gap-2">
+            <span className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin inline-block"></span>
+            <span className="text-cyan-400 text-sm">Generating response...</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
       <form className="flex border-t border-gray-800 p-4 bg-gray-950" onSubmit={handleSend}>
